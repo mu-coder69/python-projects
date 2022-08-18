@@ -1,5 +1,5 @@
 '''
-An attempt to recreate wildlife population with prey and predators
+An attempt to recreate wildlife population with prey and predators and try to see if achieve dynamic stabilitty
 
 NOT WORKING
 '''
