@@ -1,0 +1,10 @@
+Workflow
+
+1- optimize collision system
+2- implement genes
+3- implement genes connection 
+
+grid implementation
+2D array of 16-bit indexes
+
+The implementation of use 1 for ocupied places was right
