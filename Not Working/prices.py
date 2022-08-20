@@ -3,22 +3,24 @@ Trying to determinate prices of a purchase list only with the total prices and t
 
 NOT WORKING
 '''
-
-from re import I
 import numpy as np
 
 # ------ initial conditions -----
-costs = np.random.randint(100, size=(10, 1))
-purchases = np.zeros((5, 10))
-for i in range(int(purchases.shape[0] * purchases.shape[1] / 2)):
-    purchases[np.random.randint(0, 5), np.random.randint(0, 10)] = np.random.randint(0, 10)
-totals = np.around(purchases@costs, decimals=2)
+costs = np.random.randint(100, size=(10, 1)) #random 10x1 costs matrix
+purchases = np.zeros((5, 10)) # 5x10 zeroi matrix representing purchases
+rows, columns = purchases.shape
 
-purchases[0] = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-# purchases[1] = np.array([0, 0, 0, 0, 0, 4, 5, 0, 0, 0])
-totals[0] = purchases[0]@costs
-# totals[1] = purchases[1]@costs
+# just half of the values in the purchases matrix has a value != 0 
+# so i can test better the reduction algorithm
+for i in range(int(rows * columns / 2)): 
+    row = np.random.randint(0, 5)
+    column = np.random.randint(0, 10)
+    purchases[row, column] = np.random.randint(1, 10)
 
+totals = np.around(purchases@costs, decimals=2) # total prices of each purchase
+
+purchases[0] = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) # to test the sorting algorithm
+totals[0] = purchases[0]@costs # refresh totals
 
 
 # ----- format costs for user friendly display -------
@@ -28,116 +30,69 @@ for count, item in enumerate(costs):
 
 # ------ Gauss - Jordan elimination -----
 def reduce(matrix, adj):
-    extMatrix = np.concatenate((matrix, adj), axis=1)
+    completeMatrix = np.concatenate((matrix, adj), axis=1)
+    totalRows, totalColumns = completeMatrix.shape
+    zerosPerRow = np.count_nonzero(completeMatrix==0, axis=1)
+    zerosPerColumn = np.count_nonzero(completeMatrix==0, axis=0)
+    try:
+        indexFirstAllZeroRow = np.where(zerosPerRow == totalColumns)[0][0]
+    except:
+        indexFirstAllZeroRow = totalRows
+    # indexFirstAllZeroColumn = np.where(zerosPerColumn == totalRows)[0][0]
 
-    for i in range(0, extMatrix.shape[0]):
+    # fix
+    for row, column in enumerate(range(indexFirstAllZeroRow)):
+        for j in range(row+1, totalRows):
+            completeMatrix[j, :] = completeMatrix[j, :] * completeMatrix[row, column] - completeMatrix[row, :] * completeMatrix[j, column]
+    # fix
 
-        ## making sure the first element of the current row is not 0. If all 0, then swap to the last row
-        k = 1
-        while extMatrix[i, i] == 0:
-            try:
-                extMatrix[:, [i, i +k]] = extMatrix[:, [i +k, i]]
-                k += 1
-            except:
-                extMatrix[[-1, i]] = extMatrix[[i, -1]]
-                k = 1
-
-        for j in range(i+1, extMatrix.shape[0]):
-            if extMatrix[j, i] != 0:
-                extMatrix[j, :] = extMatrix[j, i] * extMatrix[i, :] - extMatrix[i, i] * extMatrix[j, :]
-
-        ## divide the whole row by its first coeff
-        # extMatrix[i, :] /= extMatrix[i, i]
-
-        # print(extMatrix)    
-        # extMatrix = np.concatenate(sort(extMatrix[:, :-1], extMatrix[:, -1].reshape((-1, 1))), axis=1)
-        # print("post sort", extMatrix, sep="\n")
-
-    matrix = extMatrix[:, :-1]
-    adj = extMatrix[:, -1].reshape((-1, 1))
+    matrix = completeMatrix[:, :-1]
+    adj = completeMatrix[:, -1].reshape((-1, 1))
     
     return matrix, adj
 
-def countZeros(matrix):
-    zerosPerRow = {}
-    
-    for i, row in enumerate(matrix):
-        zeros = 0 
-        for elem in row:
-            if elem == 0: zeros += 1
-
-        zerosPerRow[i] = zeros
-    
-    return dict(sorted(zerosPerRow.items(), key=lambda item: item[1]))  
-
-def sort(matrixA, matrixB):
+def sortRows(matrixA, matrixB):
     '''
-    sort the number of zeros in each row vertically in ascending order
+    sort the number of zeros in each row in ascending order
     '''
-    order = countZeros(matrixA)
+    zerosPerRow = np.count_nonzero(matrixA==0, axis=1)
+    orderOfRows = np.argsort(zerosPerRow)
+    rows = range(len(orderOfRows))
 
-    newMatrixA = np.zeros_like(matrixA)
-    newMatrixB = np.zeros_like(matrixB)
+    matrixA[rows, :] = matrixA[orderOfRows, :] 
+    matrixB[rows, :] = matrixB[orderOfRows, :] 
 
-    for i, row in enumerate(order):
-        newMatrixA[i] = matrixA[row]
-        newMatrixB[i] = matrixB[row]
+    return matrixA, matrixB
 
-    for i in range(matrixA.shape[1]):
-        for j in range(i, matrixA.shape[1]):
-            if not newMatrixA[:, i].any() and not newMatrixA[:, j].any(): newMatrixA[:, [i, j]] = newMatrixA[:, [j, i]]
-    
-    return newMatrixA, newMatrixB
+def sortColumns(matrix):
+    '''
+    sort the number of zeros in each column in descending order from right to left
+    '''
+    zerosPerColumn = np.count_nonzero(matrix==0, axis=0)
+    orderOfColumns = np.argsort(zerosPerColumn)
+    columns = range(len(orderOfColumns))
 
-def usefull(matrix):
-    rows, columns = matrix.shape
-    
-    null = []
-    for i in range(rows):
-        if not matrix[i].any(): null.append(i)
-    matrix = np.delete(matrix, null, axis=0)
-
-    # null = []
-    # for i in range(columns):
-    #     if not matrix[:, i].any(): null.append(i)
-    # matrix = np.delete(matrix, null, axis=1)
+    matrix[:, columns] = matrix[:, orderOfColumns] 
 
     return matrix
-
-# def attempt(matrixA, matrixB):
-#     shape = matrixA.shape
-
-#     for i in range(0, shape[0], -1):
-#         try:
-#             costs = np.linalg.solve(matrixA[i, i], matrixB[i])
-
 
 try:
     costs = np.linalg.solve(purchases, totals) ## if the matrix is square, return the solutions
     print(costs)
 except:
-    print("---original purchases---")
-    print(purchases)
-    print("---sorted purchases and total---")
-    purchases, totals = sort(purchases, totals)
-    print(purchases, totals, sep="\n")
-    print("---getting rid of empy rows and columns---")
-    purchases, totals = usefull(purchases), usefull(totals)
-    print("---cleaned purchases and totals---")
-    print(purchases, totals, sep="\n")
-    print("---reducing matrices---")
-    purchasesRed, totalsRed = reduce(purchases, totals)
-    print("purchasesRed:", np.around(purchasesRed, 2), sep="\n")
-    print("totalsRed:", totalsRed, sep="\n")
-    purchasesRed, totalsRed = usefull(purchasesRed), usefull(totalsRed)
-    print("---final cleaned matrices---")
-    print("purchasesRed:", np.around(purchasesRed, 2), sep="\n")
-    print("totalsRed:", totalsRed, sep="\n")
-
-    
-# for row in reduce(purchases, totals):
-#     print([round(el, 2) for el in row.tolist()])
-
+    incompleteMatrixRank = np.linalg.matrix_rank(purchases)
+    completeMatrixRank = np.linalg.matrix_rank(np.concatenate((purchases, totals), axis=1))
+    if incompleteMatrixRank == completeMatrixRank:
+        print("The sistem can be solved")
+        print(purchases)
+        purchases, totals = sortRows(purchases, totals)
+        purchases = sortColumns(purchases)
+        print(purchases)
+        print(reduce(purchases, totals)[0])
+        # print("purchases reduced")
+        # print(purchases[np.any(purchases!=0, axis=1), np.any(purchases!=0, axis=0)]) # how do i store the deleted columns?
+    else:
+        print("I need more purchases lists")
 
 '''
 create the UI and test the program. Not sure if it's working properly.
