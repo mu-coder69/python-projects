@@ -4,17 +4,18 @@ Trying to determinate prices of a purchase list only with the total prices and t
 NOT WORKING
 '''
 import numpy as np
+np.set_printoptions(precision=5, suppress=True)
 
 # ------ initial conditions -----
-costs = np.random.randint(100, size=(10, 1)) #random 10x1 costs matrix
-purchases = np.zeros((5, 10)) # 5x10 zeroi matrix representing purchases
+costs = np.random.randint(low=1, high=100, size=(10, 1)) #random 10x1 costs matrix
+purchases = np.zeros((5, 10)) # 5x10 zero matrix representing purchases
 rows, columns = purchases.shape
 
 # just half of the values in the purchases matrix has a value != 0 
 # so i can test better the reduction algorithm
 for i in range(int(rows * columns / 2)): 
     row = np.random.randint(0, 5)
-    column = np.random.randint(0, 10)
+    column = np.random.randint(0, 9)
     purchases[row, column] = np.random.randint(1, 10)
 
 totals = np.around(purchases@costs, decimals=2) # total prices of each purchase
@@ -31,25 +32,57 @@ for count, item in enumerate(costs):
 # ------ Gauss - Jordan elimination -----
 def reduce(matrix, adj):
     completeMatrix = np.concatenate((matrix, adj), axis=1)
+    completeMatrix = completeMatrix[ np.any(completeMatrix != 0, axis=1)]
     totalRows, totalColumns = completeMatrix.shape
-    zerosPerRow = np.count_nonzero(completeMatrix==0, axis=1)
-    zerosPerColumn = np.count_nonzero(completeMatrix==0, axis=0)
-    try:
-        indexFirstAllZeroRow = np.where(zerosPerRow == totalColumns)[0][0]
-    except:
-        indexFirstAllZeroRow = totalRows
-    # indexFirstAllZeroColumn = np.where(zerosPerColumn == totalRows)[0][0]
 
     # fix
-    for row, column in enumerate(range(indexFirstAllZeroRow)):
-        for j in range(row+1, totalRows):
-            completeMatrix[j, :] = completeMatrix[j, :] * completeMatrix[row, column] - completeMatrix[row, :] * completeMatrix[j, column]
+    actualRow, actualColumn = 0, 0
+    while completeMatrix[actualRow, :].any(): # while the actual row is not an empty row, do
+
+        ## if the pivot is 0, search for a pivot, else divide the whole row 
+        if completeMatrix[actualRow, actualColumn] == 0:
+            completeMatrix = createPivot(completeMatrix, [actualRow, actualColumn])
+        
+        else: completeMatrix[actualRow, :] /= completeMatrix[actualRow, actualColumn]
+
+        actualReducingRow = actualRow +1
+        while completeMatrix[actualRow, :].any(): # while the actual reducing row is not an empty row, do
+            completeMatrix[actualReducingRow, :] = completeMatrix[actualReducingRow, :] * completeMatrix[actualRow, actualColumn] - completeMatrix[actualRow, :] * completeMatrix[actualReducingRow, actualColumn]
+
+            if not completeMatrix[actualReducingRow, :].any(): # if the actual reducing row is empty, delete it
+                completeMatrix = np.delete(completeMatrix, actualReducingRow, axis=1)
+                totalRows = completeMatrix.shape[0] # refresh the total rows number
+
+            elif actualReducingRow < totalRows -1:
+                actualReducingRow += 1
+            else: break
+        
+        if actualRow < totalRows -1:
+            actualRow +=1
+            actualColumn +=1
+        else: break
     # fix
 
     matrix = completeMatrix[:, :-1]
     adj = completeMatrix[:, -1].reshape((-1, 1))
     
     return matrix, adj
+
+def createPivot(matrix, pos):
+    # fix
+    # error when it doesn't find any good row
+    row, column = pos
+    totalRows = matrix.shape[0]
+    k = row +1
+    while matrix[row, column] == 0:
+        matrix[[row, k], :] = matrix[[k, row], :]
+        if k < totalRows -1:
+            k += 1
+        else:
+            return matrix
+
+    matrix[row, :] /= matrix[row, column]
+    return matrix
 
 def sortRows(matrixA, matrixB):
     '''
@@ -86,7 +119,7 @@ except:
         print("The sistem can be solved")
         print(purchases)
         purchases, totals = sortRows(purchases, totals)
-        purchases = sortColumns(purchases)
+        # purchases = sortColumns(purchases)
         print(purchases)
         print(reduce(purchases, totals)[0])
         # print("purchases reduced")
