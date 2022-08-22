@@ -1,5 +1,8 @@
 import numpy as np
 
+def isSquare(matrix):
+    return matrix.shape[0] == matrix.shape[1]
+
 def sortRows(matrixA, matrixB):
     '''
     sort the number of zeros in each row in ascending order
@@ -13,29 +16,35 @@ def sortRows(matrixA, matrixB):
 
     return matrixA, matrixB
 
-def sortColumns(matrix):
-    '''
-    sort the number of zeros in each column in descending order from right to left
-    '''
-    zerosPerColumn = np.count_nonzero(matrix==0, axis=0)
-    orderOfColumns = np.argsort(zerosPerColumn)
-    columns = range(len(orderOfColumns))
-
-    matrix[:, columns] = matrix[:, orderOfColumns] 
-
-    return matrix
-
 def createPivot(matrix, pos):
-    # fix
-    # error when it doesn't find any good row
     row, column = pos
-    totalColumns = matrix.shape[1]
-    k = column +1
-    while matrix[row, column] == 0:
-        matrix[:, [column, k]] = matrix[:, [k, column]]
+    nonZero = np.nonzero(matrix[row:, column:])
+    totalRows = matrix.shape[0]
+    if row == totalRows -1: # if we are in the last row, just move the current column until the first non-zero element
+        index = nonZero[0].tolist().index(row)
+        column = nonZero[1, index]
+        # while matrix[row, column] == 0:
+        #     column += 1
+    
+    else: # else, we can search for a row to switch
+        index = nonZero[1].tolist().index(column)
+        k = nonZero[0, index]
+        matrix[[row, k], :] = matrix[[k, row], :]
 
+        k = row +1
+        while matrix[row, column] == 0:
+            matrix[[row, k], :] = matrix[[k, row], :]
+        
+            if k < totalRows-1:
+                k +=1
+            else: 
+                column += 1
+                k = row +1 
+
+    # in any case, we can divide the whole row by the first non-zero element
     matrix[row, :] /= matrix[row, column]
-    return matrix
+    #then, return the matrix and the actual column
+    return matrix, column
 
 def reduce(matrix, adj):
     completeMatrix = np.concatenate((matrix, adj), axis=1)
@@ -48,12 +57,12 @@ def reduce(matrix, adj):
 
         ## if the pivot is 0, search for a pivot, else divide the whole row 
         if completeMatrix[actualRow, actualColumn] == 0:
-            completeMatrix = createPivot(completeMatrix, [actualRow, actualColumn])
-        
+            completeMatrix, actualColumn = createPivot(completeMatrix, [actualRow, actualColumn])
         else: completeMatrix[actualRow, :] /= completeMatrix[actualRow, actualColumn]
 
         actualReducingRow = actualRow +1
-        while completeMatrix[actualRow, :].any(): # while the actual reducing row is not an empty row, do
+        # while the actual reducing row is nither an empty row nor the last one, do
+        while completeMatrix[actualRow, :].any() and actualReducingRow <= totalRows -1:
             completeMatrix[actualReducingRow, :] = completeMatrix[actualReducingRow, :] * completeMatrix[actualRow, actualColumn] - completeMatrix[actualRow, :] * completeMatrix[actualReducingRow, actualColumn]
 
             if not completeMatrix[actualReducingRow, :].any(): # if the actual reducing row is empty, delete it
@@ -74,6 +83,3 @@ def reduce(matrix, adj):
     adj = completeMatrix[:, -1].reshape((-1, 1))
     
     return matrix, adj
-
-def isSquare(matrix):
-    return matrix.shape[0] == matrix.shape[1]

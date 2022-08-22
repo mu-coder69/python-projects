@@ -42,13 +42,9 @@ else:
 
     if incompleteMatrixRank == completeMatrixRank:
         print("The sistem can be solved")
-        print(purchases)
         purchases, totals = sortRows(purchases, totals)
-        # purchases = sortColumns(purchases)
         print(purchases)
         print(reduce(purchases, totals)[0])
-        # print("purchases reduced")
-        # print(purchases[np.any(purchases!=0, axis=1), np.any(purchases!=0, axis=0)]) # how do i store the deleted columns?
     else:
         print("I need more purchases lists")
 
